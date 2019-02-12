@@ -1,3 +1,3 @@
-#Seminario de Traductores de Lenguajes 2
+# Seminario de Traductores de Lenguajes 2
 
-##Analizador lexico
+## Analizador lexico
