@@ -64,6 +64,8 @@ var pila = [];
 pila.push('$');
 pila.push(0);
 
+var arbol = new Object();
+
 var tabla_lr = [
     [0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -3, 1, 2, 3, 4, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -251,6 +253,7 @@ $(document).ready(function() {
         codigo = codigo.replace(/ /g, '').replace(/\n/g, '');
         codigo = codigo.toLowerCase();
         tipos = [];
+        arbol = new Object();
         recursivo(codigo);
     });
 
@@ -386,13 +389,30 @@ $(document).ready(function() {
                 pila.push(tipos[i][1]);
                 pila.push(lr);
             } else if (lr < 0) {
+
                 if (lr == -1) {
                     console.log('Regla valida');
                     termino = true;
                     break;
                 }
                 if (reglas[lr].cantidad > 0) {
+                    if (!arbol[reglas[lr].nombre]) {
+                        arbol[reglas[lr].nombre] = [];
+                    }
+                    var j = reglas[lr].cantidad;
+                    bandera = true;
+                    while (bandera) {
+                        arbol[reglas[lr].nombre].push(pila[pila.length - j]);
+                        j -= 2;
+                        if (j == 0) {
+                            bandera = false;
+                        }
+                    }
                     pila = pila.slice(0, pila.length - reglas[lr].cantidad);
+                }
+
+                if (!arbol[reglas[lr].nombre]) {
+                    arbol[reglas[lr].nombre] = [];
                 }
 
                 console.log('Regla', reglas[lr].regla);
@@ -418,5 +438,7 @@ $(document).ready(function() {
                 i++;
             }
         }
+
+        console.log(arbol);
     }
 });
