@@ -64,7 +64,7 @@ var pila = [];
 pila.push('$');
 pila.push(0);
 
-var arbol = new Object();
+var arbol = [];
 
 var tabla_lr = [
     [0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -3, 1, 2, 3, 4, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -247,13 +247,15 @@ var reglas = {
     '-53': { 'regla': 'R52', 'nombre': 'Expresion', 'columna': 45, 'cantidad': 2 } //R52
 };
 
+var tabla_simbolos = new Object();
+
 $(document).ready(function() {
     $('#compilar').click(function() {
         var codigo = $('#codigo').val().trim();
         codigo = codigo.replace(/ /g, '').replace(/\n/g, '');
         codigo = codigo.toLowerCase();
         tipos = [];
-        arbol = new Object();
+        arbol = [];
         recursivo(codigo);
     });
 
@@ -379,8 +381,10 @@ $(document).ready(function() {
         let lr;
         let i = 0;
         let termino = false;
+        let tabla_func = [];
+        let tabla_var = [];
         while (!termino) {
-            console.log(pila);
+            // console.log(pila);
             columna = valores[tipos[i][0]];
             fila = pila[pila.length - 1];
             lr = tabla_lr[fila][columna];
@@ -396,28 +400,34 @@ $(document).ready(function() {
                     break;
                 }
                 if (reglas[lr].cantidad > 0) {
-                    if (!arbol[reglas[lr].nombre]) {
-                        arbol[reglas[lr].nombre] = [];
-                    }
+
                     var j = reglas[lr].cantidad;
                     bandera = true;
+                    var lista = [];
                     while (bandera) {
-                        arbol[reglas[lr].nombre].push(pila[pila.length - j]);
+                        lista.push(pila[pila.length - j]);
                         j -= 2;
                         if (j == 0) {
                             bandera = false;
                         }
                     }
+                    var r = {
+                        regla: reglas[lr].regla,
+                        nombre: reglas[lr].nombre,
+                        lista: lista
+                    }
+
+                    arbol.push(r);
                     pila = pila.slice(0, pila.length - reglas[lr].cantidad);
                 }
 
-                if (!arbol[reglas[lr].nombre]) {
-                    arbol[reglas[lr].nombre] = [];
-                }
+                // if (!arbol[reglas[lr].nombre]) {
+                //     arbol[reglas[lr].nombre] = [];
+                // }
 
-                console.log('Regla', reglas[lr].regla);
-                console.log('nombre', reglas[lr].nombre);
-                console.log('desapilar', reglas[lr].cantidad);
+                // console.log('Regla', reglas[lr].regla);
+                // console.log('nombre', reglas[lr].nombre);
+                // console.log('desapilar', reglas[lr].cantidad);
 
                 columna = reglas[lr].columna;
                 fila = pila[pila.length - 1];
@@ -439,6 +449,148 @@ $(document).ready(function() {
             }
         }
 
+        arbol = arbol.reverse();
+
         console.log(arbol);
+        let ambito = '#';
+        let error = false;
+        let mensaje = '';
+
+        arbol.forEach(async regla => {
+            if(!error){
+                if(regla.regla == 'R4'){
+                    ambito = '#'
+                }
+                if(regla.nombre == 'DefFunc'){
+    
+                    tabla_func.forEach(async funcs => {
+
+                        if(funcs.id == regla.lista[1]){
+                            error = true;
+                            mensaje = 'La funcion '+regla.lista[1]+' ya existe';
+                        }
+                    });
+
+                    if(!error){
+                        ambito = '#';
+                        let insert = {
+                            tipo_dato: regla.lista[0],
+                            id: regla.lista[1],
+                            ambito: ambito
+                        };
+                        tabla_func.push(insert);
+                        ambito = regla.lista[1];
+                    }
+    
+                }
+                else if(regla.nombre == 'DefVar' || regla.nombre == 'Parametros' || regla.nombre == 'ListaParam'){
+
+                    tabla_var.forEach(async variable => {
+
+                        if(variable.id == regla.lista[1] && variable.ambito == ambito){
+                            error = true;
+                            mensaje = 'La variable '+regla.lista[1]+' ya existe en el ambito '+ambito;
+                        }
+                        else if(variable.id == regla.lista[2] && variable.ambito == ambito){
+                            error = true;
+                            mensaje = 'La variable '+regla.lista[2]+' ya existe en el ambito '+ambito;
+                        }
+                    });
+
+                    if(!error){
+                        let tp = regla.lista[0];
+                        let id = regla.lista[1];
+                        if(regla.nombre == 'ListaParam'){
+                            tp = regla.lista[1];
+                            id = regla.lista[2];
+                        }
+                        let insert = {
+                            tipo_dato: tp,
+                            id: id,
+                            ambito: ambito
+                        };
+                        tabla_var.push(insert);
+                    }
+
+                }
+            }
+        });
+
+        if(error){
+            console.error(mensaje);
+        }
+        else{
+            for(let i = 0; i < arbol.length; i++){
+                if(arbol[i].regla == 'R4'){
+                    ambito = '#';
+                }
+                if(arbol[i].nombre == 'DefFunc'){
+    
+                    ambito = arbol[i].lista[1];
+                    let funciones = tabla_func.filter(func => func.id == arbol[i].lista[1])
+                    if(funciones.length > 1){
+                        error = true;
+                        mensaje = "La funcion "+arbol[i].lista[1]+" ya existe";
+                        break;
+                    }
+    
+                }
+                if(arbol[i].nombre == 'Sentencia'){
+                    if(!tabla_var.some(variable => variable.id == arbol[i].lista[0])){
+                        error = true;
+                        mensaje = 'La variable '+arbol[i].lista[0]+' no existe';
+                        break;
+                    }
+                    let variable_ambito;
+                    for(let j = 0; j < tabla_var.length; j++){
+                        if(tabla_var[j].id == arbol[i].lista[0]){
+                            variable_ambito = tabla_var[j].ambito;
+                            if(variable_ambito == ambito || variable_ambito == '#'){
+                                break;
+                            }
+                        }
+                    }
+                    if(ambito != variable_ambito && variable_ambito != '#'){
+                        error = true;
+                        mensaje = 'La variable '+arbol[i].lista[0]+' no existe';
+                        break;
+                    }
+
+
+                }
+                if(arbol[i].nombre == 'Termino'){
+                    if(!tabla_var.some(variable => variable.id == arbol[i].lista[0])){
+                        error = true;
+                        mensaje = 'La variable '+arbol[i].lista[0]+' no existe';
+                        break;
+                    }
+                    let variable_ambito;
+                    for(let j = 0; j < tabla_var.length; j++){
+                        if(tabla_var[j].id == arbol[i].lista[0]){
+                            variable_ambito = tabla_var[j].ambito;
+                            if(variable_ambito == ambito || variable_ambito == '#'){
+                                break;
+                            }
+                        }
+                    }
+                    if(ambito != variable_ambito && variable_ambito != '#'){
+                        error = true;
+                        mensaje = 'La variable '+arbol[i].lista[0]+' no existe';
+                        break;
+                    }
+
+                    
+                }
+            }
+
+            if(error){
+                console.error(mensaje);
+            }
+            else{
+                console.log('Tabla de funciones', tabla_func);
+                console.log('Tabla de variables', tabla_var);
+            }
+        }
+
     }
 });
